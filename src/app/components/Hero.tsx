@@ -7,7 +7,7 @@ export default function Hero() {
         <div className="container mx-auto px-4 py-16">
           <div className="text-center mb-16">
             <div className="flex justify-center mb-6">
-              <div className="p-4 bg-primary/10 rounded-full">
+              <div className="p-4 bg-slate-500/10 rounded-full">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   width="24"
@@ -36,7 +36,7 @@ export default function Hero() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
                 href="/paraphraser"
-                className="inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-11 rounded-md text-lg px-8 py-6"
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-black text-white hover:bg-primary/90 h-11 rounded-md text-lg px-8 py-6"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -59,7 +59,7 @@ export default function Hero() {
               </Link>
               <Link
                 href="/saved"
-                className="inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-11 rounded-md text-lg px-8 py-6"
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-slate-200 bg-background hover:bg-accent hover:text-accent-foreground h-11 rounded-md text-lg px-8 py-6"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
