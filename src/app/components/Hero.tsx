@@ -3,7 +3,7 @@ import Link from 'next/link';
 
 export default function Hero() {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-white">
         <div className="container mx-auto px-4 py-16">
           <div className="text-center mb-16">
             <div className="flex justify-center mb-6">
@@ -58,7 +58,7 @@ export default function Hero() {
                 Start Paraphrasing
               </Link>
               <Link
-                href="/saved"
+                href="/savedworks"
                 className="inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-slate-200 bg-background hover:bg-accent hover:text-accent-foreground h-11 rounded-md text-lg px-8 py-6"
               >
                 <svg
@@ -80,7 +80,7 @@ export default function Hero() {
               </Link>
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-0">
             <div className="rounded-lg border bg-card text-card-foreground shadow-sm text-center hover:shadow-lg transition-shadow duration-300">
               <div className="flex flex-col space-y-1.5 p-6">
                 <div className="flex justify-center mb-4">
@@ -102,7 +102,7 @@ export default function Hero() {
                   </div>
                 </div>
                 <h3 className="font-semibold tracking-tight text-xl">Multiple Styles</h3>
-                <p className="text-sm text-muted-foreground">Choose from Standard, Formal, or Creative rewriting styles</p>
+                <p className="text-sm text-muted-foreground">Choose from Standard, Formal,or Creative rewriting styles</p>
               </div>
               <div className="p-6 pt-0">
                 <p className="text-gray-600">Adapt your content for different audiences and purposes with our specialized rewriting modes.</p>
@@ -131,11 +131,11 @@ export default function Hero() {
                 <h3 className="font-semibold tracking-tight text-xl">Privacy First</h3>
                 <p className="text-sm text-muted-foreground">All processing happens locally in your browser</p>
               </div>
-              <div className="p-6 pt-0">
+              <div className="p-6 pt-5">
                 <p className="text-gray-600">Your text never leaves your device. Enjoy complete privacy and work offline.</p>
               </div>
             </div>
-            <div className="rounded-lg border bg-card text-card-foreground shadow-sm text-center hover:shadow-lg transition-shadow duration-300">
+            <div className="rounded-lg border border-slate-400 bg-card text-card-foreground shadow-sm text-center hover:shadow-lg transition-shadow duration-300">
               <div className="flex flex-col space-y-1.5 p-6">
                 <div className="flex justify-center mb-4">
                   <div className="p-3 bg-purple-100 rounded-full">
@@ -159,7 +159,7 @@ export default function Hero() {
                 <h3 className="font-semibold tracking-tight text-xl">Save & Organize</h3>
                 <p className="text-sm text-muted-foreground">Keep track of your paraphrased content</p>
               </div>
-              <div className="p-6 pt-0">
+              <div className="p-6 pt-5">
                 <p className="text-gray-600">Save your best rewrites and access them anytime for future reference.</p>
               </div>
             </div>
