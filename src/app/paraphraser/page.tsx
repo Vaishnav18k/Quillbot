@@ -6,6 +6,10 @@ import { useRouter } from "next/navigation";
 import { useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import Spinner from "../components/Spinner";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import { Content } from "openai/resources/containers/files.js";
+import { Completion } from "openai/resources.js";
 
 
 export default function Page() {
@@ -24,10 +28,42 @@ export default function Page() {
     handleInputChange,
     handleSubmit,
     isLoading,
+    stop,
     error,
+    
   } = useCompletion({
     api: "/api/completion",
+    // Throttle the completion and data updates to 50ms:
+    experimental_throttle: 10,
+
+    headers: {
+      Authorization: 'your_token',
+    },
+    body: {
+      user_id: '123',
+    },
+    credentials: 'same-origin',
+  
+    // Event callbacks for debugging
+    onResponse: (response: Response) => {
+      console.log('Received response from server:', response)
+    },
+    onFinish: (prompt: string, completion: string) => {
+      console.log('Finished streaming message:', completion);
+      // console.log('Result:', message.text); // or message.result, depending on API
+    },
+    onError: (error: Error) => {
+      console.error('An error occurred:', error)
+    },
+    
   });
+
+  React.useEffect(() => {
+    if (error) {
+      toast.error(error.message);
+    }
+  }, [error]);
+  
 
   // Sync input state on every change
   React.useEffect(() => {
@@ -133,17 +169,18 @@ export default function Page() {
           </p>
           <form onSubmit={onSubmit} className="flex flex-col gap-0">
             <textarea
-              className="w-full min-h-[150px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none mb-2"
-              placeholder="Enter your text here..."
-              name="prompt"
-              value={localInput}
-              onChange={(e) => setLocalInput(e.target.value)}
-              maxLength={maxWords * 8}
-            />
+               className="w-full min-h-[150px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none mb-2"
+               placeholder="Enter your text here..."
+               name="prompt"
+               onChange={(e) => setLocalInput(e.target.value)}
+              //  value={localInput}
+               maxLength={maxWords * 8}
+             />
             <div className="flex items-center justify-between mb-2">
               <span className=" bg-slate-100 p-3 py-2  rounded-full text-xs text-black font-medium">
                 {wordCount}/{maxWords} words
               </span>
+              <button className="bg-red-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-red-400" onClick={stop} disabled={!isLoading}>Stop</button>
             </div>
             <div className="flex items-center gap-2 mb-2">
               <select
@@ -162,28 +199,35 @@ export default function Page() {
                 disabled={!localInput.trim() || wordCount > maxWords || isLoading}
                 className="inline-flex items-center justify-center gap-2 font-medium bg-black text-white hover:bg-primary/90 rounded-md px-6 py-2 transition disabled:opacity-50 disabled:pointer-events-none"
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="h-5 w-5"
-                >
-                  <path d="M15.707 21.293a1 1 0 0 1-1.414 0l-1.586-1.586a1 1 0 0 1 0-1.414l5.586-5.586a1 1 0 0 1 1.414 0l1.586 1.586a1 1 0 0 1 0 1.414z"></path>
-                  <path d="m18 13-1.375-6.874a1 1 0 0 0-.746-.776L3.235 2.028a1 1 0 0 0-1.207 1.207L5.35 15.879a1 1 0 0 0 .776.746L13 18"></path>
-                  <path d="m2.3 2.3 7.286 7.286"></path>
-                  <circle cx="11" cy="11" r="2"></circle>
-                </svg>
+                {/* svg of the penicon removed here */}
 
                 {/* {isLoading ? <Spinner /> : "Paraphrase"} */}
-                {isLoading ? "Paraphrasing..." : "Paraphrase"}
-
-
-              
+                {/* testing the loading and error state */}
+                {isLoading ? (
+  <>
+    <Spinner /> Paraphrasing...
+  </>
+) : (
+  <>
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="20"
+      height="20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-5 w-5"
+    >
+      <path d="M15.707 21.293a1 1 0 0 1-1.414 0l-1.586-1.586a1 1 0 0 1 0-1.414l5.586-5.586a1 1 0 0 1 1.414 0l1.586 1.586a1 1 0 0 1 0 1.414z"></path>
+      <path d="m18 13-1.375-6.874a1 1 0 0 0-.746-.776L3.235 2.028a1 1 0 0 0-1.207 1.207L5.35 15.879a1 1 0 0 0 .776.746L13 18"></path>
+      <path d="m2.3 2.3 7.286 7.286"></path>
+      <circle cx="11" cy="11" r="2"></circle>
+    </svg>
+    Paraphrase
+  </>
+)}
               </button>
               <button
                 type="button"
@@ -222,6 +266,7 @@ export default function Page() {
           {error && (
             <div className="mt-4 p-3 bg-red-100 text-red-700 rounded">
               Error: {error.message}
+              {/* it should show error message */}
             </div>
           )}
         </div>
@@ -241,7 +286,7 @@ export default function Page() {
               </div>
               <div className="p-4 bg-gray-50 rounded-lg border border-slate-200 mb-4">
                 <p className="text-gray-800 leading-relaxed whitespace-pre-wrap">
-                  { isLoading ? <Spinner /> : completion}
+                  {completion}
                 </p>
               </div>
               <div className="flex gap-4 mb-4 justify-center">
