@@ -39,6 +39,7 @@ export async function POST(req: Request) {
       model: openai('gpt-3.5-turbo'),
       system: STRICT_SYSTEM_PROMPT,
       messages: openaiMessages, 
+      
     });
 
     // Wrap the SSE response so clients can consume a text/event-stream
