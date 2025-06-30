@@ -36,7 +36,7 @@ export async function POST(req: Request) {
 
     // Kick off the streaming call
     const aiStream = await streamText({
-      model: openai('gpt-4o'),
+      model: openai('gpt-3.5-turbo'),
       system: STRICT_SYSTEM_PROMPT,
       messages: openaiMessages, 
     });
