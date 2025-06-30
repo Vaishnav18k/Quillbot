@@ -5,6 +5,7 @@ import { useCompletion } from "@ai-sdk/react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import Spinner from "../components/Spinner";
 
 
 export default function Page() {
@@ -14,7 +15,6 @@ export default function Page() {
   const [copied, setCopied] = React.useState(false);
   const [showToast, setShowToast] = React.useState(false);
   const [style, setStyle] = React.useState("standard");
-
   const maxWords = 500;
   const wordCount = localInput.trim().split(/\s+/).filter(Boolean).length;
 
@@ -179,7 +179,10 @@ export default function Page() {
                   <circle cx="11" cy="11" r="2"></circle>
                 </svg>
 
+                {/* {isLoading ? <Spinner /> : "Paraphrase"} */}
                 {isLoading ? "Paraphrasing..." : "Paraphrase"}
+
+
               
               </button>
               <button
@@ -238,7 +241,7 @@ export default function Page() {
               </div>
               <div className="p-4 bg-gray-50 rounded-lg border border-slate-200 mb-4">
                 <p className="text-gray-800 leading-relaxed whitespace-pre-wrap">
-                  {completion}
+                  { isLoading ? <Spinner /> : completion}
                 </p>
               </div>
               <div className="flex gap-4 mb-4 justify-center">
