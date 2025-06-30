@@ -107,7 +107,7 @@ export default function Page() {
         : style === "formal"
         ? "Paraphrase the following text in a professional and academic tone."
         : style === "creative"
-         "Paraphrase the following text in an expressive and engaging style with vivid language.";
+        "Paraphrase the following text in an expressive and engaging style with vivid language.";
 
     // manually update input to include style prompt
     // Create a synthetic event with the expected target shape
