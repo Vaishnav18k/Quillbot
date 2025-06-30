@@ -1,48 +1,39 @@
 "use client";
 import React from "react";
-import Header from "../components/Header"; // Restore and fix the Header import
-import { useChat } from "@ai-sdk/react";
+import Header from "../components/Header";
+import { useCompletion } from "@ai-sdk/react";
 import { useRouter } from "next/navigation";
-import { api } from "../../../convex/_generated/api"; // Import useMutation and api from Convex
 import { useMutation } from "convex/react";
-import { useState } from "react";
+import { api } from "../../../convex/_generated/api";
 
 
 export default function Page() {
-  // Local state for input to ensure reset works
   const [localInput, setLocalInput] = React.useState("");
-  const [lastInput, setLastInput] = React.useState(""); // Store the last submitted input
-  const [animatedText, setAnimatedText] = React.useState("");
+  const [lastInput, setLastInput] = React.useState("");
+  const [saving, setSaving] = React.useState(false);
+  const [copied, setCopied] = React.useState(false);
+  const [showToast, setShowToast] = React.useState(false);
+  const [style, setStyle] = React.useState("standard");
 
-  
+  const maxWords = 500;
+  const wordCount = localInput.trim().split(/\s+/).filter(Boolean).length;
 
-  
-  // Handler to reset the input, messages, and last input
-  const handleResetInput = () => {
-    setMessages([]); // Clear chat/messages
-    setLocalInput(""); // Clear input field
-    setLastInput(""); // Clear last submitted input
-  };
   const {
-    messages,
-    setMessages,
+    completion,
     input,
     handleInputChange,
     handleSubmit,
-    status,
-    append,
-  } = useChat({});
+    isLoading,
+    error,
+  } = useCompletion({
+    api: "/api/completion",
+  });
 
-  // Keep localInput in sync with useChat's input (for first render and after submit)
+  // Sync input state on every change
   React.useEffect(() => {
     setLocalInput(input);
   }, [input]);
-  const maxWords = 500;
-  const wordCount = input.trim().split(/\s+/).filter(Boolean).length;
-
-  const [style, setStyle] = React.useState("standard");
-  const [saving, setSaving] = React.useState(false);
-  const [copied, setCopied] = React.useState(false); // Restore the copied state
+  
 
   const styleOptions = [
     {
@@ -62,73 +53,57 @@ export default function Page() {
     },
   ];
 
-  // Find the latest AI message (paraphrased result)
+  const router = useRouter();
+  const saveCollection = useMutation(api.savedCollection.saveCollection);
 
-  // Toast state for paraphrase success
-  const [showToast, setShowToast] = React.useState(false);
-  const latestAIMessage = messages
-    .filter((m) => m.role === "assistant")
-    .slice(-1)[0];
+  const handleResetInput = () => {
+    setLocalInput("");
+    setLastInput("");
+  };
 
-  // Show toast when a new paraphrased result is received
-  const prevMessageId = React.useRef<string | undefined>(undefined);
-
-
-
-
-
-
-  
-  React.useEffect(() => {
-    if (latestAIMessage && latestAIMessage.id !== prevMessageId.current) {
-      setShowToast(true);
-      setTimeout(() => setShowToast(false), 4000);
-      prevMessageId.current = latestAIMessage.id;
-    }
-  }, [latestAIMessage]);
-
-  // Custom submit handler to include style in the prompt
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!localInput.trim() || wordCount > maxWords) return;
-    // Construct prompt with style
+
     const stylePrompt =
       style === "standard"
         ? "Paraphrase the following text in a clear and neutral tone."
         : style === "formal"
         ? "Paraphrase the following text in a professional and academic tone."
         : "Paraphrase the following text in an expressive and engaging style with vivid language.";
-    await append({ role: "user", content: `${stylePrompt}\n\n${localInput}` });
-    setLastInput(localInput); // Store the submitted input
-    // Do NOT clear localInput after submit, so it stays in the textarea
+
+    // manually update input to include style prompt
+    // Create a synthetic event with the expected target shape
+    const syntheticEvent = {
+      target: { value: `${stylePrompt}\n\n${localInput}` }
+    } as React.ChangeEvent<HTMLInputElement>;
+    handleInputChange(syntheticEvent);
+
+    await handleSubmit(e);
+    setLastInput(localInput);
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 4000);
   };
 
-  // Save to collection handler
-  const router = useRouter();
-
-  const saveCollection = useMutation(api.savedCollection.saveCollection);
   const handleSave = async () => {
-    if (!latestAIMessage) return;
+    if (!completion) return;
     setSaving(true);
     await saveCollection({
       original: lastInput,
-      paraphrased: latestAIMessage.content,
+      paraphrased: completion,
       style: style,
       timestamp: Date.now(),
     });
     setSaving(false);
-  }; // Implement handleSave to use Convex mutation
+  };
 
-  // Copy result handler
   const handleCopy = () => {
-    if (!latestAIMessage) return;
-    navigator.clipboard.writeText(latestAIMessage.content);
+    if (!completion) return;
+    navigator.clipboard.writeText(completion);
     setCopied(true);
     setTimeout(() => setCopied(false), 1200);
   };
 
-
-  
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       <Header />
@@ -162,10 +137,7 @@ export default function Page() {
               placeholder="Enter your text here..."
               name="prompt"
               value={localInput}
-              onChange={(e) => {
-                setLocalInput(e.target.value);
-                handleInputChange(e);
-              }}
+              onChange={(e) => setLocalInput(e.target.value)}
               maxLength={maxWords * 8}
             />
             <div className="flex items-center justify-between mb-2">
@@ -187,12 +159,7 @@ export default function Page() {
               </select>
               <button
                 type="submit"
-                disabled={
-                  !input.trim() ||
-                  wordCount > maxWords ||
-                  status === "submitted" ||
-                  status === "streaming"
-                }
+                disabled={!localInput.trim() || wordCount > maxWords || isLoading}
                 className="inline-flex items-center justify-center gap-2 font-medium bg-black text-white hover:bg-primary/90 rounded-md px-6 py-2 transition disabled:opacity-50 disabled:pointer-events-none"
               >
                 <svg
@@ -211,13 +178,13 @@ export default function Page() {
                   <path d="m2.3 2.3 7.286 7.286"></path>
                   <circle cx="11" cy="11" r="2"></circle>
                 </svg>
-                {status === "submitted" || status === "streaming"
-                  ? "Paraphrasing..."
-                  : "Paraphrase"}
+
+                {isLoading ? "Paraphrasing..." : "Paraphrase"}
+              
               </button>
               <button
                 type="button"
-                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-slate-300 bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2"
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-slate-300 bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2"
                 onClick={handleResetInput}
               >
                 <svg
@@ -237,7 +204,6 @@ export default function Page() {
                 </svg>
               </button>
             </div>
-
             <div className="text-sm font-semibold text-blue-900 bg-blue-50 rounded px-3 py-2 mb-1">
               <span className="font-bold">
                 {styleOptions.find((opt) => opt.value === style)?.label} Style:
@@ -246,20 +212,19 @@ export default function Page() {
                 {styleOptions.find((opt) => opt.value === style)?.desc || ""}
               </span>
             </div>
+        
           </form>
+          
 
-          {/* Error handling */}
-          {status === "error" && (
+          {error && (
             <div className="mt-4 p-3 bg-red-100 text-red-700 rounded">
-              An error occurred. Please try again.
+              Error: {error.message}
             </div>
           )}
         </div>
-        <br></br>
-        
-        {latestAIMessage && latestAIMessage.content && lastInput && (
-          <div className="w-full max-w-4xl bg-white rounded-xl shadow-2xl p-8 border border-gray-100 ">
-            {/* Paraphrased Result Section */}
+<br></br>
+        {completion && lastInput && (
+          <div className="w-full max-w-4xl bg-white rounded-xl shadow-2xl p-8 border border-gray-100">
             <div className="mt-8">
               <div className="flex items-center justify-between mb-1">
                 <h3 className="text-2xl font-bold">Paraphrased Result</h3>
@@ -273,31 +238,32 @@ export default function Page() {
               </div>
               <div className="p-4 bg-gray-50 rounded-lg border border-slate-200 mb-4">
                 <p className="text-gray-800 leading-relaxed whitespace-pre-wrap">
-                  {latestAIMessage.content}
+                  {completion}
                 </p>
               </div>
               <div className="flex gap-4 mb-4 justify-center">
                 <button
-                  className="flex-1 flex justify-center items-center  gap-2 border border-slate-200 bg-white text-sm shadow-sm  rounded-lg px-6 py-4 font-semibold text-base text-gray-900 hover:border-primary hover:bg-gray-50 hover:text-primary transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-70"
+                  className="flex-1 flex justify-center items-center gap-2 border border-slate-200 bg-white text-sm shadow-sm rounded-lg px-6 py-4 font-semibold text-base text-gray-900 hover:border-primary hover:bg-gray-50 hover:text-primary transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-70"
                   onClick={handleSave}
                   disabled={saving}
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="lucide lucide-save mr-2 h-4 w-4"
-                  >
-                    <path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"></path>
-                    <path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"></path>
-                    <path d="M7 3v4a1 1 0 0 0 1 1h7"></path>
-                  </svg>
+                ><svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="lucide lucide-save mr-2 h-4 w-4"
+              >
+                <path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"></path>
+                <path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"></path>
+                <path d="M7 3v4a1 1 0 0 0 1 1h7"></path>
+              </svg>
+
+
                   {saving ? "Saved!" : "Save to Collection"}
                 </button>
                 <button
@@ -331,13 +297,10 @@ export default function Page() {
                   {copied ? "Copied!" : "Copy Result"}
                 </button>
               </div>
-              <div className="flex justify-end"></div>
             </div>
           </div>
         )}
-        </div>
 
-        {/* Toast notification */}
         {showToast && (
           <div className="fixed bottom-4 right-4 z-50 bg-white border border-gray-200 shadow-lg rounded-lg p-5 flex flex-col gap-1 min-w-[320px] max-w-xs animate-fade-in">
             <div className="font-bold text-gray-900 mb-1 flex items-center justify-between">
@@ -355,6 +318,6 @@ export default function Page() {
           </div>
         )}
       </div>
-    
+    </div>
   );
 }

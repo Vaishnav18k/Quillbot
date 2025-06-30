@@ -170,7 +170,7 @@ export default function SavedWorks() {
             </div>
           ) : (
             <div className="grid gap-6">
-              {saved?.map((item: SavedItem) => (
+              {[...(saved ?? [])].sort((a, b) => b.timestamp - a.timestamp).map((item: SavedItem) => (
                 <div
                   key={item._id} // Assuming _id is unique
                   className="rounded-lg border bg-card text-card-foreground shadow-sm hover:shadow-lg transition-shadow duration-200"
