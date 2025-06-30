@@ -1,21 +1,20 @@
 "use client";
 import React from "react";
-import Header from "../components/Header"; // Restore and fix the Header import
+import Header from "../components/Header";
 import { useChat } from "@ai-sdk/react";
 import { useRouter } from "next/navigation";
-import { api } from "../../../convex/_generated/api"; // Import useMutation and api from Convex
+import { api } from "../../../convex/_generated/api";
 import { useMutation } from "convex/react";
-export default function Page() {
-  // Local state for input to ensure reset works
-  const [localInput, setLocalInput] = React.useState("");
-  const [lastInput, setLastInput] = React.useState(""); // Store the last submitted input
 
-  // Handler to reset the input, messages, and last input
-  const handleResetInput = () => {
-    setMessages([]); // Clear chat/messages
-    setLocalInput(""); // Clear input field
-    setLastInput(""); // Clear last submitted input
-  };
+export default function Page() {
+  const [localInput, setLocalInput] = React.useState("");
+  const [lastInput, setLastInput] = React.useState("");
+  const [animatedText, setAnimatedText] = React.useState("");
+  const [style, setStyle] = React.useState("standard");
+  const [saving, setSaving] = React.useState(false);
+  const [copied, setCopied] = React.useState(false);
+  const [showToast, setShowToast] = React.useState(false);
+
   const {
     messages,
     setMessages,
@@ -26,16 +25,85 @@ export default function Page() {
     append,
   } = useChat({});
 
-  // Keep localInput in sync with useChat's input (for first render and after submit)
+  const latestAIMessage = messages
+    .filter((m) => m.role === "assistant")
+    .slice(-1)[0];
+
+  // Typing animation effect
   React.useEffect(() => {
-    setLocalInput(input);
-  }, [input]);
+    if (!latestAIMessage?.content) return;
+
+    let index = 0;
+    const text = latestAIMessage.content;
+    setAnimatedText("");
+
+    const interval = setInterval(() => {
+      setAnimatedText((prev) => prev + text[index]);
+      index++;
+      if (index >= text.length) clearInterval(interval);
+    }, 15);
+
+    return () => clearInterval(interval);
+  }, [latestAIMessage?.content]);
+
+  const prevMessageId = React.useRef<string | undefined>(undefined);
+  React.useEffect(() => {
+    if (latestAIMessage && latestAIMessage.id !== prevMessageId.current) {
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 4000);
+      prevMessageId.current = latestAIMessage.id;
+    }
+  }, [latestAIMessage]);
+
   const maxWords = 500;
   const wordCount = input.trim().split(/\s+/).filter(Boolean).length;
 
-  const [style, setStyle] = React.useState("standard");
-  const [saving, setSaving] = React.useState(false);
-  const [copied, setCopied] = React.useState(false); // Restore the copied state
+  React.useEffect(() => {
+    setLocalInput(input);
+  }, [input]);
+
+  const handleResetInput = () => {
+    setMessages([]);
+    setLocalInput("");
+    setLastInput("");
+  };
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!localInput.trim() || wordCount > maxWords) return;
+
+    const stylePrompt =
+      style === "standard"
+        ? "Paraphrase the following text in a clear and neutral tone."
+        : style === "formal"
+        ? "Paraphrase the following text in a professional and academic tone."
+        : "Paraphrase the following text in an expressive and engaging style with vivid language.";
+
+    await append({ role: "user", content: `${stylePrompt}\n\n${localInput}` });
+    setLastInput(localInput);
+  };
+
+  const router = useRouter();
+  const saveCollection = useMutation(api.savedCollection.saveCollection);
+
+  const handleSave = async () => {
+    if (!latestAIMessage) return;
+    setSaving(true);
+    await saveCollection({
+      original: lastInput,
+      paraphrased: latestAIMessage.content,
+      style,
+      timestamp: Date.now(),
+    });
+    setSaving(false);
+  };
+
+  const handleCopy = () => {
+    if (!latestAIMessage) return;
+    navigator.clipboard.writeText(latestAIMessage.content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1200);
+  };
 
   const styleOptions = [
     {
@@ -55,94 +123,18 @@ export default function Page() {
     },
   ];
 
-  // Find the latest AI message (paraphrased result)
-
-  // Toast state for paraphrase success
-  const [showToast, setShowToast] = React.useState(false);
-  const latestAIMessage = messages
-    .filter((m) => m.role === "assistant")
-    .slice(-1)[0];
-
-  // Show toast when a new paraphrased result is received
-  const prevMessageId = React.useRef<string | undefined>(undefined);
-  React.useEffect(() => {
-    if (latestAIMessage && latestAIMessage.id !== prevMessageId.current) {
-      setShowToast(true);
-      setTimeout(() => setShowToast(false), 4000);
-      prevMessageId.current = latestAIMessage.id;
-    }
-  }, [latestAIMessage]);
-
-  // Custom submit handler to include style in the prompt
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!localInput.trim() || wordCount > maxWords) return;
-    // Construct prompt with style
-    const stylePrompt =
-      style === "standard"
-        ? "Paraphrase the following text in a clear and neutral tone."
-        : style === "formal"
-        ? "Paraphrase the following text in a professional and academic tone."
-        : "Paraphrase the following text in an expressive and engaging style with vivid language.";
-    await append({ role: "user", content: `${stylePrompt}\n\n${localInput}` });
-    setLastInput(localInput); // Store the submitted input
-    // Do NOT clear localInput after submit, so it stays in the textarea
-  };
-
-  // Save to collection handler
-  const router = useRouter();
-
-  const saveCollection = useMutation(api.savedCollection.saveCollection);
-  const handleSave = async () => {
-    if (!latestAIMessage) return;
-    setSaving(true);
-    await saveCollection({
-      original: lastInput,
-      paraphrased: latestAIMessage.content,
-      style: style,
-      timestamp: Date.now(),
-    });
-    setSaving(false);
-  }; // Implement handleSave to use Convex mutation
-
-  // Copy result handler
-  const handleCopy = () => {
-    if (!latestAIMessage) return;
-    navigator.clipboard.writeText(latestAIMessage.content);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1200);
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       <Header />
-      <div className="container mx-auto px-4 py-12 flex flex-col items-center ">
+      <div className="container mx-auto px-4 py-12 flex flex-col items-center">
         <div className="w-full max-w-4xl bg-white rounded-xl shadow-lg p-8 border border-gray-100">
-          <h2 className="text-3xl font-bold mb-1 flex items-center gap-2">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="28"
-              height="28"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-8 w-8 text-primary"
-            >
-              <path d="M15.707 21.293a1 1 0 0 1-1.414 0l-1.586-1.586a1 1 0 0 1 0-1.414l5.586-5.586a1 1 0 0 1 1.414 0l1.586 1.586a1 1 0 0 1 0 1.414z"></path>
-              <path d="m18 13-1.375-6.874a1 1 0 0 0-.746-.776L3.235 2.028a1 1 0 0 0-1.207 1.207L5.35 15.879a1 1 0 0 0 .776.746L13 18"></path>
-              <path d="m2.3 2.3 7.286 7.286"></path>
-              <circle cx="11" cy="11" r="2"></circle>
-            </svg>
-            Original Text
-          </h2>
+          <h2 className="text-3xl font-bold mb-1 flex items-center gap-2">Original Text</h2>
           <p className="text-gray-600 mb-4 text-base">
             Enter the text you want to paraphrase (up to {maxWords} words)
           </p>
           <form onSubmit={onSubmit} className="flex flex-col gap-0">
             <textarea
-              className="w-full min-h-[150px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none mb-2"
+              className="w-full min-h-[150px] rounded-md border px-3 py-2 text-sm mb-2 resize-none"
               placeholder="Enter your text here..."
               name="prompt"
               value={localInput}
@@ -153,13 +145,13 @@ export default function Page() {
               maxLength={maxWords * 8}
             />
             <div className="flex items-center justify-between mb-2">
-              <span className=" bg-slate-100 p-3 py-2  rounded-full text-xs text-black font-medium">
+              <span className="bg-slate-100 p-3 py-2 rounded-full text-xs text-black font-medium">
                 {wordCount}/{maxWords} words
               </span>
             </div>
             <div className="flex items-center gap-2 mb-2">
               <select
-                className="w-full rounded border border-gray-300 p-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full rounded border border-gray-300 p-2 text-sm"
                 value={style}
                 onChange={(e) => setStyle(e.target.value)}
               >
@@ -177,153 +169,70 @@ export default function Page() {
                   status === "submitted" ||
                   status === "streaming"
                 }
-                className="inline-flex items-center justify-center gap-2 font-medium bg-black text-white hover:bg-primary/90 rounded-md px-6 py-2 transition disabled:opacity-50 disabled:pointer-events-none"
+                className="inline-flex items-center gap-2 bg-black text-white rounded-md px-6 py-2 text-sm font-medium transition disabled:opacity-50"
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="h-5 w-5"
-                >
-                  <path d="M15.707 21.293a1 1 0 0 1-1.414 0l-1.586-1.586a1 1 0 0 1 0-1.414l5.586-5.586a1 1 0 0 1 1.414 0l1.586 1.586a1 1 0 0 1 0 1.414z"></path>
-                  <path d="m18 13-1.375-6.874a1 1 0 0 0-.746-.776L3.235 2.028a1 1 0 0 0-1.207 1.207L5.35 15.879a1 1 0 0 0 .776.746L13 18"></path>
-                  <path d="m2.3 2.3 7.286 7.286"></path>
-                  <circle cx="11" cy="11" r="2"></circle>
-                </svg>
                 {status === "submitted" || status === "streaming"
                   ? "Paraphrasing..."
                   : "Paraphrase"}
               </button>
               <button
                 type="button"
-                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-slate-300 bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2"
                 onClick={handleResetInput}
+                className="inline-flex items-center gap-2 border border-gray-300 bg-white text-sm rounded-md px-4 py-2"
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="lucide lucide-rotate-ccw h-4 w-4"
-                >
-                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
-                  <path d="M3 3v5h5"></path>
-                </svg>
+                Reset
               </button>
             </div>
-
             <div className="text-sm font-semibold text-blue-900 bg-blue-50 rounded px-3 py-2 mb-1">
-              <span className="font-bold">
-                {styleOptions.find((opt) => opt.value === style)?.label} Style:
-              </span>{" "}
-              <span className="font-normal">
-                {styleOptions.find((opt) => opt.value === style)?.desc || ""}
-              </span>
+              <span className="font-bold">{styleOptions.find((opt) => opt.value === style)?.label} Style:</span>{" "}
+              <span className="font-normal">{styleOptions.find((opt) => opt.value === style)?.desc}</span>
             </div>
           </form>
-
-          {/* Error handling */}
           {status === "error" && (
             <div className="mt-4 p-3 bg-red-100 text-red-700 rounded">
               An error occurred. Please try again.
             </div>
           )}
         </div>
-        <br></br>
-        
-        {latestAIMessage && latestAIMessage.content && lastInput && (
-          <div className="w-full max-w-4xl bg-white rounded-xl shadow-2xl p-8 border border-gray-100 ">
-            {/* Paraphrased Result Section */}
-            <div className="mt-8">
-              <div className="flex items-center justify-between mb-1">
-                <h3 className="text-2xl font-bold">Paraphrased Result</h3>
-                <div className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold border-transparent bg-black text-white capitalize">
-                  {style}
-                </div>
+
+        {latestAIMessage?.content && lastInput && (
+          <div className="w-full max-w-4xl bg-white rounded-xl shadow-2xl p-8 border border-gray-100 mt-6">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-2xl font-bold">Paraphrased Result</h3>
+              <div className="inline-flex items-center rounded-full bg-black text-white px-3 py-1 text-xs font-semibold capitalize">
+                {style}
               </div>
-              <div className="text-gray-500 text-sm mb-3 text-center">
-                Your text has been rewritten using the{" "}
-                <span className="font-semibold ">{style}</span> style
-              </div>
-              <div className="p-4 bg-gray-50 rounded-lg border border-slate-200 mb-4">
-                <p className="text-gray-800 leading-relaxed whitespace-pre-wrap">
-                  {latestAIMessage.content}
-                </p>
-              </div>
-              <div className="flex gap-4 mb-4 justify-center">
-                <button
-                  className="flex-1 flex justify-center items-center  gap-2 border border-slate-200 bg-white text-sm shadow-sm  rounded-lg px-6 py-4 font-semibold text-base text-gray-900 hover:border-primary hover:bg-gray-50 hover:text-primary transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-70"
-                  onClick={handleSave}
-                  disabled={saving}
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="lucide lucide-save mr-2 h-4 w-4"
-                  >
-                    <path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"></path>
-                    <path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"></path>
-                    <path d="M7 3v4a1 1 0 0 0 1 1h7"></path>
-                  </svg>
-                  {saving ? "Saved!" : "Save to Collection"}
-                </button>
-                <button
-                  className="flex-1 flex justify-center items-center gap-2 border border-slate-200 bg-white text-sm shadow-sm rounded-lg px-6 py-4 font-semibold text-base text-gray-900 hover:border-primary hover:bg-gray-50 hover:text-primary transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-70"
-                  onClick={handleCopy}
-                  disabled={copied}
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="lucide lucide-copy mr-2 h-4 w-4"
-                  
-                  >
-                    <rect
-                      width="14"
-                      height="14"
-                      x="8"
-                      y="8"
-                      rx="2"
-                      ry="2"
-                    ></rect>
-                    <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path>
-                  </svg>
-                  {copied ? "Copied!" : "Copy Result"}
-                </button>
-              </div>
-              <div className="flex justify-end"></div>
+            </div>
+            <div className="text-gray-500 text-sm mb-3 text-center">
+              Your text has been rewritten using the{" "}
+              <span className="font-semibold">{style}</span> style
+            </div>
+            <div className="p-4 bg-gray-50 rounded-lg border border-slate-200 mb-4">
+              <p className="text-gray-800 leading-relaxed whitespace-pre-wrap">
+                {animatedText}
+              </p>
+            </div>
+            <div className="flex gap-4 mb-4 justify-center">
+              <button
+                className="flex-1 border border-slate-200 bg-white rounded-lg px-6 py-3 text-base font-semibold hover:bg-gray-50"
+                onClick={handleSave}
+                disabled={saving}
+              >
+                {saving ? "Saved!" : "Save to Collection"}
+              </button>
+              <button
+                className="flex-1 border border-slate-200 bg-white rounded-lg px-6 py-3 text-base font-semibold hover:bg-gray-50"
+                onClick={handleCopy}
+                disabled={copied}
+              >
+                {copied ? "Copied!" : "Copy Result"}
+              </button>
             </div>
           </div>
         )}
-        </div>
 
-        {/* Toast notification */}
         {showToast && (
-          <div className="fixed bottom-4 right-4 z-50 bg-white border border-gray-200 shadow-lg rounded-lg p-5 flex flex-col gap-1 min-w-[320px] max-w-xs animate-fade-in">
+          <div className="fixed bottom-4 right-4 z-50 bg-white border border-gray-200 shadow-lg rounded-lg p-5 min-w-[320px] max-w-xs">
             <div className="font-bold text-gray-900 mb-1 flex items-center justify-between">
               Text paraphrased successfully!
               <button
@@ -339,6 +248,6 @@ export default function Page() {
           </div>
         )}
       </div>
-    
+    </div>
   );
 }

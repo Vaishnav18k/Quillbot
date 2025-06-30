@@ -1,4 +1,4 @@
-import { anthropic } from '@ai-sdk/anthropic';
+import { openai } from '@ai-sdk/openai';
 import { streamText } from 'ai';
 
 // Your strict system instructions—absolutely cannot be overridden:
@@ -18,17 +18,17 @@ export async function POST(req: Request) {
     const { messages } = await req.json();
 
     // Validate API key
-    const apiKey = process.env.ANTHROPIC_API_KEY;
+    const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
-    //   console.error('Missing Anthropic API key');
+    //   console.error('Missing OpenAI API key');
       return new Response(
         JSON.stringify({ error: 'Server misconfiguration: missing API key' }),
         { status: 500 }
       );
     }
 
-    // Build the Anthropic-style messages array
-    const anthroMessages = [
+    // Build the OpenAI-style messages array
+    const openaiMessages = [
       { role: 'system', content: STRICT_SYSTEM_PROMPT },
       // We assume incoming messages are [{ role: 'user', content: '...' }, …]
       ...messages
@@ -36,9 +36,9 @@ export async function POST(req: Request) {
 
     // Kick off the streaming call
     const aiStream = await streamText({
-      model: anthropic('claude-4-opus-20250514'),
+      model: openai('gpt-4o'),
       system: STRICT_SYSTEM_PROMPT,
-      messages: anthroMessages, 
+      messages: openaiMessages, 
     });
 
     // Wrap the SSE response so clients can consume a text/event-stream
