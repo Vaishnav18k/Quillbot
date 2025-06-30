@@ -41,6 +41,7 @@ export default function Page() {
     },
     body: {
       user_id: '123',
+      
     },
     credentials: 'same-origin',
   
@@ -112,7 +113,7 @@ export default function Page() {
     // manually update input to include style prompt
     // Create a synthetic event with the expected target shape
     const syntheticEvent = {
-      target: { value: `${stylePrompt}\n\n${localInput}` }
+      target: { value: `${localInput}` }
     } as React.ChangeEvent<HTMLInputElement>;
     handleInputChange(syntheticEvent);
 
